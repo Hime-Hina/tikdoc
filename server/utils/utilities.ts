@@ -28,3 +28,20 @@ export function stringifyJSON(
 ): string | undefined {
   return _stringifyJSON(value, replacer, space)
 }
+
+export interface AABB {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export function isAABBIntersectedX(a: AABB, b: AABB, tolerance = 0): boolean {
+  return a.x + a.width + tolerance >= b.x && b.x + b.width + tolerance >= a.x
+}
+export function isAABBIntersectedY(a: AABB, b: AABB, tolerance = 0): boolean {
+  return a.y + a.height + tolerance >= b.y && b.y + b.height + tolerance >= a.y
+}
+export function isAABBIntersected(a: AABB, b: AABB, tolerance = 0): boolean {
+  return isAABBIntersectedX(a, b, tolerance) && isAABBIntersectedY(a, b, tolerance)
+}
