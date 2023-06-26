@@ -17,7 +17,7 @@ const onFilter: QSelectProps['onFilter'] = async (
   isError.value = false
 
   if (fullOptions.length <= 0) { // 从服务器获取目录列表
-    const { data, error } = await useFetch('/api/folders')
+    const { data, error } = await useFetch('/api/accessible_directories')
     if (error.value !== null || data.value?.code !== 200) {
       isError.value = true
       errorMessage.value = error.value?.message ?? data.value?.message ?? '未知错误'
@@ -59,6 +59,7 @@ const onFilterAbort: QSelectProps['onFilterAbort'] = () => {
     <template #fallback>
       <q-skeleton type="QInput" />
     </template>
+    // TODO: 改用QTree
     <QSelect
       v-model="model"
       bottom-slots

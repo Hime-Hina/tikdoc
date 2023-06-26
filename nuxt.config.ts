@@ -21,12 +21,19 @@ export default defineNuxtConfig({
     },
   },
   modules: [
+    'nuxt-lodash',
     '@nuxtjs/eslint-module',
     '@pinia/nuxt',
     '@pinia-plugin-persistedstate/nuxt',
     '@vueuse/nuxt',
     'nuxt-quasar-ui',
   ],
+  lodash: {
+    prefix: 'lodash',
+    prefixSkip: ['is', 'string'],
+    upperAfterPrefix: true,
+    alias: [],
+  },
   pinia: {
     autoImports: ['defineStore', ['defineStore', 'definePiniaStore']],
   },
