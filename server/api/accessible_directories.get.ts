@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import type { AccessibleDirectoriesTableRow } from '../database/postgreSQL'
+import type { AccessibleDirectoriesRow } from '../database/postgreSQL'
 import psql from '../database/postgreSQL'
 
 export interface AccessibleDirectoriesQueryParam {
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const { pageNum, pageSize } = value
 
   try {
-    const results = await psql<AccessibleDirectoriesTableRow[]>`
+    const results = await psql<AccessibleDirectoriesRow[]>`
       SELECT id, directory_path, description
       FROM accessible_directories
       ${
