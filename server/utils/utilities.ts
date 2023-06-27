@@ -1,5 +1,6 @@
 import type { Replacer } from 'safe-stable-stringify'
 import { configure } from 'safe-stable-stringify'
+import type { H3Event } from 'h3'
 
 export interface ApiResponse<T> {
   code: number
@@ -7,7 +8,8 @@ export interface ApiResponse<T> {
   data: T
 }
 
-export function createApiResponse<T>(code: number, message: string, data: T): ApiResponse<T> {
+export function createApiResponse<T>(event: H3Event, code: number, message: string, data: T): ApiResponse<T> {
+  setResponseStatus(event, code)
   return {
     code,
     message,

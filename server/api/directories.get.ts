@@ -2,12 +2,12 @@ import Joi from 'joi'
 import type { AccessibleDirectoriesRow } from '../database/postgreSQL'
 import psql from '../database/postgreSQL'
 
-export interface AccessibleDirectoriesQueryParam {
+export interface DirectoriesQueryParam {
   pageNum: number
   pageSize?: number
 }
 
-const schema = Joi.object<AccessibleDirectoriesQueryParam>({
+const schema = Joi.object<DirectoriesQueryParam>({
   pageNum: Joi.number().integer().min(1).optional().default(1),
   pageSize: Joi.number().integer().min(1).optional(),
 })
@@ -15,7 +15,7 @@ const schema = Joi.object<AccessibleDirectoriesQueryParam>({
 export default defineEventHandler(async (event) => {
   const { error, warning, value } = schema.validate(getQuery(event))
   if (error)
-    return createApiResponse(400, error.message, null)
+    return createApiResponse(event, 400, error.message, null)
   if (warning)
     console.warn(warning.message)
 
@@ -32,13 +32,13 @@ export default defineEventHandler(async (event) => {
       }
     `
 
-    return createApiResponse(200, 'success', results.map(result => ({
+    return createApiResponse(event, 200, 'success', results.map(result => ({
       id: result.id,
       path: result.directory_path,
       description: result.description,
     })))
   } catch (_e) {
     const error = _e as Error
-    return createApiResponse(500, error.message, null)
+    return createApiResponse(event, 500, error.message, null)
   }
 })

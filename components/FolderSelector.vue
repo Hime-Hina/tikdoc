@@ -17,7 +17,7 @@ const onFilter: QSelectProps['onFilter'] = async (
   isError.value = false
 
   if (fullOptions.length <= 0) { // 从服务器获取目录列表
-    const { data, error } = await useFetch('/api/accessible_directories')
+    const { data, error } = await useFetch('/api/directories')
     if (error.value !== null || data.value?.code !== 200) {
       isError.value = true
       errorMessage.value = error.value?.message ?? data.value?.message ?? '未知错误'
