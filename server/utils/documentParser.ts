@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import type { PDFExtractPage, PDFExtractText } from 'pdf.js-extract'
 import { PDFExtract } from 'pdf.js-extract'
@@ -10,23 +11,54 @@ export interface ParsedDocumentText {
   lineNum: number
 }
 
-export interface ParsedDocumentPage {
+export interface ParsedDocumentPageWithLines {
   lines: ParsedDocumentText[]
   pageNum: number
 }
 
+export interface ParsedDocumentPage {
+  content: string
+  pageNum: number
+}
+
 export interface ParsedDocument {
-  filename?: string
   pages: ParsedDocumentPage[]
-  info: {
+  absolutePath: string
+  docInfo: {
     numPages: number
-    title?: string
+    title: string
     author?: string
     creator?: string
     producer?: string
     creationDate?: string
     updateDate?: string
   }
+}
+
+// 定义一个函数，用于递归地读取某个目录下特定类型的文件
+export async function readFiles(directoryPath: string, extRegx?: RegExp) {
+  const filePaths: string[] = []
+  // 读取dir目录下的所有文件和子目录的名称
+  const files = await fs.promises.readdir(directoryPath, {
+    withFileTypes: true,
+  })
+  // 遍历文件和子目录
+  for (const file of files) {
+    const fullPath = path.join(directoryPath, file.name)
+    const extName = path.extname(file.name)
+    if (file.isFile()) { // 如果是文件，判断是否是目标文件类型
+      if (extRegx) {
+        if (extName.match(extRegx))
+          filePaths.push(fullPath)
+      } else {
+        filePaths.push(fullPath)
+      }
+    } else if (file.isDirectory()) { // 如果是子目录，递归调用readFiles
+      filePaths.push(...await readFiles(fullPath, extRegx))
+    }
+  }
+
+  return filePaths
 }
 
 function canContentsMergedLTR(contentA: PDFExtractText, contentB: PDFExtractText) {
@@ -183,32 +215,31 @@ function mergePDFPageContentToLines(page: PDFExtractPage): ParsedDocumentText[] 
   return mappedContent
 }
 
-export function parsePDF(filePath: string, callback: (err: Error | null, parsed?: ParsedDocument) => void) {
-  pdfExtract.extract(filePath, {}, (err, pdfData) => {
-    if (err) {
-      console.error(err)
-      callback(err)
-      return
-    }
-    if (!pdfData) {
-      console.error('PDF data is empty')
-      callback(new Error('PDF data is empty'))
-      return
-    }
+function parsePDF(filePath: string): Promise<ParsedDocument> {
+  const basename = path.basename(filePath)
+  return pdfExtract.extract(filePath, {
+  }).then((pdfData) => {
+    if (!pdfData)
+      throw new Error(`${basename}: data is empty`)
 
-    const filename = path.basename(pdfData.filename ?? filePath)
-    const pages = pdfData.pages.map(page => ({
+    const pages: ParsedDocumentPage[] = pdfData.pages.map(page => ({
       pageNum: page.pageInfo.num,
-      lines: mergePDFPageContentToLines(page),
-    }))
-    const parsed = {
-      filename,
+      content: mergePDFPageContentToLines(page)
+        .map(line => line.content.replaceAll('\u0000', ''))
+        .join('\n'),
+    })).filter(page => page.content !== '')
+
+    if (pages.length === 0)
+      throw new Error(`${basename}: pages is empty`)
+
+    return {
       pages,
-      info: {
+      absolutePath: filePath,
+      docInfo: {
         numPages: pdfData.pdfInfo?.numPages ?? pages.length,
         title: pdfData.meta?.info?.Title
                ?? pdfData.meta?.metadata?.['dc:title']
-               ?? path.basename(filename, path.extname(filename)),
+               ?? path.basename(filePath, path.extname(filePath)),
         author: pdfData.meta?.info?.Author
                 ?? (pdfData.meta?.metadata?.['dc:creator'] as string[] | undefined)?.join(' '),
         creator: pdfData.meta?.info?.Creator,
@@ -217,43 +248,53 @@ export function parsePDF(filePath: string, callback: (err: Error | null, parsed?
         updateDate: pdfData.meta?.info?.ModDate,
       },
     }
-
-    callback(null, parsed)
   })
 }
 
-export function parseWord(filePath: string, callback: (err: Error | null, parsed?: ParsedDocument) => void) {
-  mammoth.extractRawText({ path: filePath }).then((result) => {
+function parseDocx(filePath: string): Promise<ParsedDocument> {
+  const basename = path.basename(filePath)
+  return mammoth.extractRawText({
+    path: filePath,
+  }).then((result) => {
     for (const message of result.messages) {
-      if (message.type === 'warning') {
-        console.warn(message.message)
-      } else if (message.type === 'error') {
-        console.error(message.message)
-        callback(new Error(message.message))
-        return
-      }
+      if (message.type === 'warning')
+        console.warn(basename, message.message)
+      else if (message.type === 'error')
+        throw new Error(`${basename}: ${message.message}`)
     }
 
-    const filename = path.basename(filePath)
     const pages = [{
       pageNum: 1,
-      lines: result.value.split('\n').map((line, index) => ({
-        content: line,
-        lineNum: index + 1,
-      })),
-    }]
-    const parsed = {
-      filename,
+      content: result.value.split('\n')
+        .map((line, index) => ({
+          content: line,
+          lineNum: index + 1,
+        }))
+        .filter(line => line.content !== '')
+        .map(line => line.content.replaceAll('\u0000', ''))
+        .join('\n'),
+    }].filter(page => page.content !== '')
+
+    if (pages.length === 0)
+      throw new Error(`${basename}: pages is empty`)
+
+    return {
       pages,
-      info: {
+      absolutePath: filePath,
+      docInfo: {
         numPages: pages.length,
-        title: path.basename(filename, path.extname(filename)),
+        title: path.basename(filePath, path.extname(filePath)),
       },
     }
-
-    callback(null, parsed)
-  }).catch((err) => {
-    console.error(err)
-    callback(err as Error)
   })
+}
+
+export function parseDocument(filePath: string): Promise<ParsedDocument> {
+  const ext = path.extname(filePath)
+  if (ext === '.pdf')
+    return parsePDF(filePath)
+  else if (ext === '.docx')
+    return parseDocx(filePath)
+  else
+    throw new Error(`Unsupported file type: ${ext}`)
 }
