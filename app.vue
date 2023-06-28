@@ -1,10 +1,7 @@
 <script lang="ts" setup>
-const leftDrawerOpen = ref(false)
-const rightDrawerOpen = ref(false)
+import SearchBar from './components/SearchBar.vue'
 
-function toggleLeftDrawer() {
-  leftDrawerOpen.value = !leftDrawerOpen.value
-}
+const rightDrawerOpen = ref(false)
 
 function toggleRightDrawer() {
   rightDrawerOpen.value = !rightDrawerOpen.value
@@ -19,14 +16,6 @@ function toggleRightDrawer() {
       reveal
     >
       <q-toolbar>
-        <q-btn
-          dense
-          flat
-          icon="menu"
-          round
-          @click="toggleLeftDrawer"
-        />
-
         <q-toolbar-title>
           <q-avatar>
             <img src="https://cdn.quasar.dev/logo-v2/svg/logo-mono-white.svg">
@@ -45,14 +34,6 @@ function toggleRightDrawer() {
     </q-header>
 
     <q-drawer
-      v-model="leftDrawerOpen"
-      bordered
-      side="left"
-    >
-      <!-- drawer content -->
-    </q-drawer>
-
-    <q-drawer
       v-model="rightDrawerOpen"
       bordered
       side="right"
@@ -62,6 +43,7 @@ function toggleRightDrawer() {
 
     <q-page-container>
       <FolderSelector />
+      <SearchBar />
     </q-page-container>
 
     <q-footer
