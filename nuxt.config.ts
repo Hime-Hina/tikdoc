@@ -1,3 +1,6 @@
+import prexit from 'prexit'
+import psql from './server/database/postgreSQL'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   app: {
@@ -18,6 +21,20 @@ export default defineNuxtConfig({
           'content': '0',
         },
       ],
+    },
+  },
+  hooks: {
+    close: (_nuxt) => {
+      console.log('Nuxt is closing!')
+    },
+    ready: (_nuxt) => {
+      console.log('Nuxt is ready!')
+      prexit(async () => {
+        // 真的需要这么做吗？
+        await psql.end({ timeout: 5 })
+        await _nuxt.close()
+        console.log('prexit: Nuxt is closing!')
+      })
     },
   },
   modules: [

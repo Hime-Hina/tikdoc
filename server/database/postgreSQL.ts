@@ -1,6 +1,9 @@
 import postgres from 'postgres'
 
-const psql = postgres()
+const psql = postgres({
+  idle_timeout: 200,
+  max_lifetime: 60 * 30,
+})
 
 export default psql
 
