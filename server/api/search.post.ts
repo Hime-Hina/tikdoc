@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
         pgroonga_highlight_html(
           content,
           pgroonga_query_extract_keywords(${keyword}),
-          'documents_pages_content_index'
+          'documents_pages_content_index_for_highlight'
         ) as highlighted_content
       from documents_pages
       where id in (

@@ -38,24 +38,28 @@ export interface ParsedDocument {
 // 定义一个函数，用于递归地读取某个目录下特定类型的文件
 export async function readFiles(directoryPath: string, extRegx?: RegExp) {
   const filePaths: string[] = []
+  try {
   // 读取dir目录下的所有文件和子目录的名称
-  const files = await fs.promises.readdir(directoryPath, {
-    withFileTypes: true,
-  })
-  // 遍历文件和子目录
-  for (const file of files) {
-    const fullPath = path.join(directoryPath, file.name)
-    const extName = path.extname(file.name)
-    if (file.isFile()) { // 如果是文件，判断是否是目标文件类型
-      if (extRegx) {
-        if (extName.match(extRegx))
+    const files = await fs.promises.readdir(directoryPath, {
+      withFileTypes: true,
+    })
+    // 遍历文件和子目录
+    for (const file of files) {
+      const fullPath = path.join(directoryPath, file.name)
+      const extName = path.extname(file.name)
+      if (file.isFile()) { // 如果是文件，判断是否是目标文件类型
+        if (extRegx) {
+          if (extName.match(extRegx))
+            filePaths.push(fullPath)
+        } else {
           filePaths.push(fullPath)
-      } else {
-        filePaths.push(fullPath)
+        }
+      } else if (file.isDirectory()) { // 如果是子目录，递归调用readFiles
+        filePaths.push(...await readFiles(fullPath, extRegx))
       }
-    } else if (file.isDirectory()) { // 如果是子目录，递归调用readFiles
-      filePaths.push(...await readFiles(fullPath, extRegx))
     }
+  } catch (_e) {
+    // console.error(_e)
   }
 
   return filePaths
@@ -289,11 +293,14 @@ function parseDocx(filePath: string): Promise<ParsedDocument> {
   })
 }
 
+const pdfExtentionRegex = /\.pdf$/i
+const docxExtentionRegex = /\.docx$/i
+// const txtExtentionRegex = /\.(txt|md)$/i
 export function parseDocument(filePath: string): Promise<ParsedDocument> {
   const ext = path.extname(filePath)
-  if (ext === '.pdf')
+  if (pdfExtentionRegex.test(ext))
     return parsePDF(filePath)
-  else if (ext === '.docx')
+  else if (docxExtentionRegex.test(ext))
     return parseDocx(filePath)
   else
     throw new Error(`Unsupported file type: ${ext}`)

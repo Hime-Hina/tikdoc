@@ -10,6 +10,13 @@ export interface DirectoriesQueryParam {
   path?: string
 }
 
+export type DirectoriesResponse = {
+  type: 'directory' | 'file'
+  name: string
+  description?: string
+  isIndexed?: boolean
+}[]
+
 const schema = Joi.object<DirectoriesQueryParam>({
   pageNum: Joi.number().integer().min(1).optional().default(1),
   pageSize: Joi.number().integer().min(1).optional(),
@@ -27,7 +34,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const accessibleDirectories = await psql<AccessibleDirectory[]>`
-      select id, directory_path
+      select id, directory_path, description, is_indexed
       from accessible_directories
       ${
         pageSize === undefined
@@ -40,7 +47,7 @@ export default defineEventHandler(async (event) => {
       if (!accessibleDirectories.some(dir => path.startsWith(dir.directory_path))) {
         return createApiResponse(event, 403, 'forbidden', null)
       } else {
-        const pathInfo = await fs.readdir(path, { withFileTypes: true })
+        const pathInfo: DirectoriesResponse = await fs.readdir(path, { withFileTypes: true })
           .then((files) => {
             return files
               .filter(file =>
@@ -49,8 +56,8 @@ export default defineEventHandler(async (event) => {
                     && supportFileExtRegx.test(nodePath.extname(file.name))),
               )
               .map(file => ({
-                fileType: file.isDirectory() ? 'directory' : 'file',
-                fileName: nodePath.normalize(file.name),
+                type: file.isDirectory() ? 'directory' : 'file',
+                name: nodePath.normalize(file.name),
               }))
           })
         return createApiResponse(
@@ -64,8 +71,10 @@ export default defineEventHandler(async (event) => {
         event,
         200, 'success',
         accessibleDirectories.map(dir => ({
-          fileType: 'directory',
-          fileName: nodePath.normalize(dir.directory_path),
+          type: 'directory',
+          name: nodePath.normalize(dir.directory_path),
+          description: dir.description,
+          isIndexed: dir.is_indexed,
         })),
       )
     }

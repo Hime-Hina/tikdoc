@@ -60,7 +60,11 @@ function onDownloadBtnClick() {
     }`
   })
   const blob = new Blob(
-    [txtContent.join('\n\n')],
+    [txtContent.join('\n\n')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&quot;', '"')],
     { type: 'text/plain;charset=utf-8' },
   )
   saveAs(blob, '搜索结果.txt')
@@ -105,6 +109,7 @@ watch(searchResults, () => {
           <q-expansion-item
             expand-icon-toggle
             expand-separator
+            tag="label"
           >
             <template #header>
               <q-item-section avatar>
@@ -138,14 +143,17 @@ watch(searchResults, () => {
                   <q-item-section>
                     <q-item-label overline>
                       {{
-                        `页${page.pageNum}，行${line.lineStart}`.concat(
+                        `第${`${page.pageNum}页，第${line.lineStart}`.concat(
                           line.lineStart !== line.lineEnd
                             ? `-${line.lineEnd}`
                             : '',
-                        )
+                        )}行`
                       }}
                     </q-item-label>
-                    <q-item-label class="line-content" v-html="line.content" />
+                    <q-item-label
+                      class="line-content"
+                      v-html="line.content"
+                    />
                   </q-item-section>
                 </q-item>
               </q-item>
@@ -158,10 +166,16 @@ watch(searchResults, () => {
 </template>
 
 <style scoped>
+.line-content {
+  display: inline-block;
+  width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .line-content :deep() .keyword {
   color: red;
 }
-.line-content-list-item {
+.line-content-list-item, .line-content-list-item * {
   width: 100%;
 }
 </style>

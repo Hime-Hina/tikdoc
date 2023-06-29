@@ -19,9 +19,11 @@ if (error.value) {
   })
 } else {
   nodes.value.push(...rootNodes.value!.data!.map(p => ({
-    label: p.fileName,
-    path: p.fileName,
-    lazy: p.fileType === 'directory',
+    label: p.name
+           + (p.description ? ` (${p.description})` : '')
+           + (p.isIndexed ? ' [已索引]' : ''),
+    path: p.name,
+    lazy: p.type === 'directory',
   })))
 }
 
@@ -36,9 +38,9 @@ const onLazyLoad: QTree['onLazyLoad'] = ({ key, done, fail }) => {
       return
     }
     done(data.value!.data!.map(p => ({
-      label: p.fileName,
-      path: `${key}/${p.fileName}`,
-      lazy: p.fileType === 'directory',
+      label: p.name,
+      path: `${key}/${p.name}`,
+      lazy: p.type === 'directory',
     })))
   })
 }
