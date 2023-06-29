@@ -35,6 +35,16 @@ export default defineEventHandler(async (event) => {
   const { pageNum, pageSize, keyword, paths } = value
 
   try {
+    const response = await $fetch('/api/directories_index', {
+      method: 'POST',
+    })
+    if (response.code !== 200) {
+      return createApiResponse(
+        event,
+        500, 'Failed to create directories index', null,
+      )
+    }
+
     const pages = (await psql<DocumentsPageWithHighlight[]>`
       select
         id,

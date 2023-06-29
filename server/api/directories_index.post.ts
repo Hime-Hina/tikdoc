@@ -26,8 +26,11 @@ export default defineEventHandler(async (event) => {
     console.warn(warning.message)
 
   try {
-    let numInsertedDocuments = 0
-    let numInsertedPages = 0
+    const response = {
+      numInsertedDocuments: 0,
+      numInsertedPages: 0,
+      numDocumentsInsertionFailed: 0,
+    }
     const directories = await psql<AccessibleDirectory[]>`
       select id, directory_path, description, is_indexed
       from accessible_directories
@@ -41,8 +44,13 @@ export default defineEventHandler(async (event) => {
     if (directories.length === 0)
       return createApiResponse(event, 404, 'No such directory', null)
 
+    const unindexedDirectories = directories.filter(dir => !dir.is_indexed)
+
+    if (unindexedDirectories.length === 0)
+      return createApiResponse(event, 200, 'Already indexed', response)
+
     if (!value.forceUpdate) {
-      for (const directoryPath of directories) {
+      for (const directoryPath of unindexedDirectories) {
         const filePaths = await readFiles(
           directoryPath.directory_path,
           supportFileExtRegx,
@@ -82,7 +90,6 @@ export default defineEventHandler(async (event) => {
                       }
                       returning id
                     `
-
                     return {
                       numInsertedDocuments: 1,
                       numInsertedPages: pageIds.length,
@@ -94,10 +101,11 @@ export default defineEventHandler(async (event) => {
           results.filter((result): result is PromiseFulfilledResult<NumInserted> => {
             if (result.status === 'rejected') {
               console.error(result.reason)
+              response.numDocumentsInsertionFailed += 1
               return false
             } else if (result.status === 'fulfilled') {
-              numInsertedDocuments += result.value.numInsertedDocuments
-              numInsertedPages += result.value.numInsertedPages
+              response.numInsertedDocuments += result.value.numInsertedDocuments
+              response.numInsertedPages += result.value.numInsertedPages
               return true
             }
             return false
@@ -105,9 +113,19 @@ export default defineEventHandler(async (event) => {
         ).catch((error: any) => {
           console.error(error)
         })
+        await psql`
+          update accessible_directories
+          set is_indexed = true
+          where id = ${directoryPath.id}
+        `
       }
     } else {
       for (const directoryPath of directories) {
+        await psql`
+          update accessible_directories
+          set is_indexed = false
+          where id = ${directoryPath.id}
+        `
         const filePaths = await readFiles(
           directoryPath.directory_path,
           supportFileExtRegx,
@@ -119,7 +137,9 @@ export default defineEventHandler(async (event) => {
                 .then(({ pages, absolutePath, docInfo }) => {
                   return psql.begin(async (psql) => {
                     const [document] = await psql<[Pick<Document, 'id'>]>`
-                      insert into documents (directory_id, absolute_path, title, author)
+                      insert into documents (
+                        directory_id, absolute_path, title, author
+                      )
                       values (
                         ${directoryPath.id},
                         ${absolutePath},
@@ -133,8 +153,8 @@ export default defineEventHandler(async (event) => {
                       returning id
                     `
                     await psql`
-                    delete from documents_pages
-                    where document_id = ${document.id}
+                      delete from documents_pages
+                      where document_id = ${document.id}
                     `
                     const pageIds = await psql<Pick<DocumentsPage, 'id'>[]>`
                       insert into documents_pages ${
@@ -158,10 +178,11 @@ export default defineEventHandler(async (event) => {
           results.filter((result): result is PromiseFulfilledResult<NumInserted> => {
             if (result.status === 'rejected') {
               console.error(result.reason)
+              response.numDocumentsInsertionFailed += 1
               return false
             } else if (result.status === 'fulfilled') {
-              numInsertedDocuments += result.value.numInsertedDocuments
-              numInsertedPages += result.value.numInsertedPages
+              response.numInsertedDocuments += result.value.numInsertedDocuments
+              response.numInsertedPages += result.value.numInsertedPages
               return true
             }
             return false
@@ -169,13 +190,15 @@ export default defineEventHandler(async (event) => {
         ).catch((error: any) => {
           console.error(error)
         })
+        await psql`
+          update accessible_directories
+          set is_indexed = true
+          where id = ${directoryPath.id}
+        `
       }
     }
 
-    return createApiResponse(event, 200, 'OK', {
-      numInsertedDocuments,
-      numInsertedPages,
-    })
+    return createApiResponse(event, 200, 'success', response)
   } catch (_e) {
     const error = _e as Error
     return createApiResponse(event, 500, error.message, null)

@@ -23,6 +23,10 @@ export default defineNuxtConfig({
       ],
     },
   },
+  build: {
+  },
+  eslint: {
+  },
   hooks: {
     close: (_nuxt) => {
       console.log('Nuxt is closing!')
