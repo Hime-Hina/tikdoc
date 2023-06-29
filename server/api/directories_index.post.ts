@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
       for (const directoryPath of directories) {
         const filePaths = await readFiles(
           directoryPath.directory_path,
-          /\.(pdf|docx)/,
+          supportFileExtRegx,
         )
         const indexedDocumentPathSet = new Set(
           (await psql<Pick<Document, 'id' | 'directory_id' | 'absolute_path'>[]>`
@@ -110,7 +110,7 @@ export default defineEventHandler(async (event) => {
       for (const directoryPath of directories) {
         const filePaths = await readFiles(
           directoryPath.directory_path,
-          /\.(pdf|docx)/,
+          supportFileExtRegx,
         )
         await Promise.allSettled(
           filePaths

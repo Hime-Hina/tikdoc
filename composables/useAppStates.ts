@@ -1,10 +1,12 @@
 export const useAppStates = defineStore('appStates', () => {
-  const folderSelectorModel = ref<FolderSelectorOptions | null>(null)
+  const selectedFilePaths = ref<string[]>([])
   const searchKeyword = ref('')
+  const searchResults = ref<SearchResults>([])
 
   return {
-    folderSelectorModel,
+    selectedFilePaths,
     searchKeyword,
+    searchResults,
   }
 }, {
   persist: [

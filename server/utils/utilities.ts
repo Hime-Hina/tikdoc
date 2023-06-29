@@ -17,6 +17,11 @@ export function createApiResponse<T>(event: H3Event, code: number, message: stri
   }
 }
 
+// export const openTagRegx = /<(\w+)"[^"]*"|'[^']*'|[^'">]*>/g
+// export const closeTagRegx = /<\/(\w+)"[^"]*"|'[^']*'|[^'">]*>/g
+export const htmlTagRegx = /<(?:"[^"]*"|'[^']*'|[^'">])*>/g
+export const supportFileExtRegx = /\.(pdf|docx)$/i
+
 const _stringifyJSON = configure({
   circularValue: '[...]',
   deterministic: false,

@@ -1,25 +1,12 @@
 import Joi from 'joi'
-import psql from '../database/postgreSQL'
 import type { Document } from '../database/postgreSQL'
+import psql from '../database/postgreSQL'
 
-export interface SearchRequestBody {
+interface SearchRequestBody {
   pageNum: number
   pageSize?: number
   keyword: string
   paths?: string[]
-}
-
-export interface SearchResults {
-  [absolutePath: string]: {
-    title: string
-    author: string
-    pages: {
-      id: number
-      pageNum: number
-      lines: PageSearchResult[]
-      score: number
-    }[]
-  }
 }
 
 interface DocumentsPageWithHighlight {
@@ -30,22 +17,12 @@ interface DocumentsPageWithHighlight {
   score: number
 }
 
-interface PageSearchResult {
-  lineStart: number
-  lineEnd: number
-  content: string
-}
-
 const schema = Joi.object<SearchRequestBody>({
   pageNum: Joi.number().integer().min(1).optional().default(1),
   pageSize: Joi.number().integer().min(1).optional(),
   keyword: Joi.string().required(),
   paths: Joi.array().items(Joi.string()).optional(),
 })
-
-// const openTagRegx = /<(\w+)"[^"]*"|'[^']*'|[^'">]*>/g
-// const closeTagRegx = /<\/(\w+)"[^"]*"|'[^']*'|[^'">]*>/g
-const htmlTagRegx = /<(?:"[^"]*"|'[^']*'|[^'">])*>/g
 
 export default defineEventHandler(async (event) => {
   const { error, warning, value } = schema.validate(await readBody(event))
@@ -56,18 +33,19 @@ export default defineEventHandler(async (event) => {
     console.warn(warning.message)
 
   const { pageNum, pageSize, keyword, paths } = value
+
   try {
     const pages = (await psql<DocumentsPageWithHighlight[]>`
       select
         id,
         document_id,
         page_num,
+        pgroonga_score(tableoid, ctid) as score,
         pgroonga_highlight_html(
           content,
           pgroonga_query_extract_keywords(${keyword}),
           'documents_pages_content_index'
-        ) as highlighted_content,
-        pgroonga_score(tableoid, ctid) as score
+        ) as highlighted_content
       from documents_pages
       where id in (
         select id
@@ -76,24 +54,22 @@ export default defineEventHandler(async (event) => {
           paths === undefined
             ? psql`true`
             : psql`document_id in (
-                    select id
-                    from documents
-                    where pgroonga_prefix_in_varchar_conditions(
-                      absolute_path,
-                      (${paths})::text[],
-                      'documents_absolute_path_index'
-                    )
-                  ) and content &@~ ${keyword}
-                  `
+                select id
+                from documents
+                where pgroonga_prefix_in_varchar_conditions(
+                  absolute_path,
+                  (${paths})::text[],
+                  'documents_absolute_path_index'
+                )
+              )`
         } and content &@~ ${keyword}
-        order by pgroonga_score(tableoid, ctid) desc
-        ${
-          pageSize === undefined
-            ? psql``
-            : psql`limit ${pageSize} offset ${(pageNum - 1) * pageSize}`
-        }
       )
-      order by pgroonga_score(tableoid, ctid) desc
+      order by document_id, page_num, pgroonga_score(tableoid, ctid) desc
+      ${
+        pageSize === undefined
+          ? psql``
+          : psql`limit ${pageSize} offset ${(pageNum - 1) * pageSize}`
+      }
     `).map((page) => {
       const linesBuffer: PageSearchResult = {
         lineStart: 1,
@@ -143,42 +119,36 @@ export default defineEventHandler(async (event) => {
         score: page.score,
       }
     })
-    const docIdMapPage = new Map<number, SearchResults[string]>()
-    const docIdMapPath = new Map<number, string>()
-    for (const page of pages) {
-      const docId = page.documentId
-      if (!docIdMapPage.has(docId)) {
-        const [documentInfo] = await psql<[Document]>`
-          select title, author, absolute_path
-          from documents
-          where id = ${docId}
-        `
-        docIdMapPath.set(docId, documentInfo.absolute_path)
-        docIdMapPage.set(docId, {
-          title: documentInfo.title,
-          author: documentInfo.author,
+    // 需假设`pages`已经按`documentId`和`pageNum`排序
+    const results: SearchResults = []
+    for (let i = 0; i < pages.length; ++i) {
+      const lastResult = results[results.length - 1]
+      if (!lastResult || lastResult.id !== pages[i].documentId) {
+        const [document] = await psql<[Document]>`
+            select id, absolute_path, title, author
+            from documents
+            where id = ${pages[i].documentId}
+          `
+        results.push({
+          id: document.id,
+          absolutePath: document.absolute_path,
+          title: document.title,
+          author: document.author,
           pages: [{
-            id: page.id,
-            pageNum: page.pageNum,
-            lines: page.lines,
-            score: page.score,
+            id: pages[i].id,
+            pageNum: pages[i].pageNum,
+            lines: pages[i].lines,
+            score: pages[i].score,
           }],
         })
       } else {
-        docIdMapPage.get(docId)!.pages.push({
-          id: page.id,
-          pageNum: page.pageNum,
-          lines: page.lines,
-          score: page.score,
+        lastResult.pages.push({
+          id: pages[i].id,
+          pageNum: pages[i].pageNum,
+          lines: pages[i].lines,
+          score: pages[i].score,
         })
       }
-    }
-
-    const results: SearchResults = {}
-
-    for (const [docId, docInfo] of docIdMapPage) {
-      const absolutePath = docIdMapPath.get(docId)!
-      results[absolutePath] = docInfo
     }
 
     return createApiResponse(event, 200, 'success', results)

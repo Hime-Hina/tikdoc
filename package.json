@@ -12,6 +12,7 @@
     "@elastic/elasticsearch": "^8.8.1",
     "@pinia/nuxt": "^0.4.11",
     "@quasar/extras": "^1.16.4",
+    "file-saver": "^2.0.5",
     "joi": "^17.9.2",
     "lodash": "^4.17.21",
     "mammoth": "^1.6.0",

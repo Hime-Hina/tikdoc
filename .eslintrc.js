@@ -33,6 +33,6 @@ module.exports = {
         order: [['script', 'template'], 'style'],
       },
     ],
-    'vue/no-v-html': 'error',
+    'vue/no-v-html': 'off',
   },
 }

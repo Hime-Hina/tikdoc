@@ -18,7 +18,7 @@ function toggleRightDrawer() {
       <q-toolbar>
         <q-toolbar-title>
           <q-avatar>
-            <img src="https://cdn.quasar.dev/logo-v2/svg/logo-mono-white.svg">
+            <img src="/quasar-logo.svg">
           </q-avatar>
           TikDoc
         </q-toolbar-title>
@@ -44,6 +44,7 @@ function toggleRightDrawer() {
     <q-page-container>
       <FolderSelector />
       <SearchBar />
+      <SearchResultList />
     </q-page-container>
 
     <q-footer
@@ -52,5 +53,3 @@ function toggleRightDrawer() {
     />
   </q-layout>
 </template>
-
-<style scoped></style>
