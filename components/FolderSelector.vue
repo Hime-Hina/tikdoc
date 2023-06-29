@@ -14,6 +14,8 @@ if (error.value) {
   console.error(error.value)
   nodes.value.push({
     label: '获取目录时出错',
+    disabled: true,
+    noTick: true,
   })
 } else {
   nodes.value.push(...rootNodes.value!.data!.map(p => ({

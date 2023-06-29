@@ -1,12 +1,16 @@
 <script lang="ts" setup>
 import { storeToRefs } from 'pinia'
 import { saveAs } from 'file-saver'
+import { isClient } from '@vueuse/core'
 
 const { searchResults } = storeToRefs(useAppStates())
 const checkboxes = ref<boolean[]>([])
 const haveResultsSelected = computed(() => checkboxes.value.some(v => v))
 
 function onDownloadBtnClick() {
+  if (!isClient)
+    return
+
   const selectedSearchResults = searchResults.value.filter((_, i) => checkboxes.value[i])
   const htmlTagRegx = /<(?:"[^"]*"|'[^']*'|[^'">])*>/g
   /*
